@@ -32,6 +32,7 @@ Claude Code ──/v1/messages──▶ https://openrouter.ai/api ──▶ anth
 ./env.sh --check      # re-verify an existing setup
 ./env.sh --stop       # stop the dashboard it started
 ./env.sh --demo       # prove the wiring with no network at all
+./env.sh --diagnose   # dns → tcp → tls → https for openrouter.ai, and the verdict
 ```
 
 Then, in a new shell:
@@ -267,6 +268,17 @@ Then start a new shell and run `/logout` in Claude Code if you want to sign in
 to Anthropic again.
 
 ## Troubleshooting
+
+Start with `./env.sh --diagnose`. It separates the four failure layers, which
+otherwise all look like "it doesn't work":
+
+| layer | what it means |
+|---|---|
+| dns | the name doesn't resolve — no DNS at all |
+| tcp 443 | nothing accepts the connection — egress blocked outright |
+| tls | the socket opens and is then reset mid-handshake — SNI-level blocking by a proxy/firewall. No key, model or flag fixes this; the host simply cannot reach OpenRouter |
+| https 200 | the endpoint is reachable, so any remaining failure really is the key, the model id or the rate limit |
+
 
 | Symptom | Cause | Fix |
 |---|---|---|

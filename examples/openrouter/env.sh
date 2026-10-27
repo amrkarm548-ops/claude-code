@@ -6,6 +6,7 @@
 #   ./env.sh --install --free --key ...       # also install the Claude Code CLI
 #   ./env.sh --check                          # re-verify an existing setup
 #   ./env.sh --demo                           # prove the wiring offline (stand-in server)
+#   ./env.sh --diagnose                       # why can't this host reach openrouter.ai?
 #   ./env.sh --stop                           # stop what it started
 #   ./env.sh --terminal                       # also run Claude Code in the browser (real CLI in a PTY)
 #
@@ -38,7 +39,7 @@ ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
 bad() { printf '  \033[31m✗\033[0m %s\n' "$*"; }
 
-usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -50,6 +51,7 @@ while [ $# -gt 0 ]; do
     --install) INSTALL=1; shift ;;
     --check) CHECK=1; shift ;;
     --demo) DEMO=1; shift ;;
+    --diagnose) DIAGNOSE=1; shift ;;
     --stop) STOP=1; shift ;;
     --terminal) TERMINAL=1; shift ;;
     --no-dashboard) DASHBOARD_ON=0; shift ;;
@@ -69,6 +71,37 @@ if [ "$STOP" = "1" ]; then
       say "$name is not running"
     fi
   done
+  exit 0
+fi
+
+# --- diagnose --------------------------------------------------------------
+if [ "${DIAGNOSE:-0}" = "1" ]; then
+  TARGET="${1:-openrouter.ai}"
+  step "diagnose: can this host reach $TARGET?"
+  printf '  dns    '; getent hosts "$TARGET" | head -1 || echo "no answer"
+  if timeout 6 bash -c "exec 3<>/dev/tcp/$TARGET/443" 2>/dev/null; then
+    ok "tcp 443 accepts a connection"
+  else
+    bad "tcp 443 refused"
+  fi
+  printf '  tls    '
+  if timeout 10 openssl s_client -connect "$TARGET:443" -servername "$TARGET" -brief </dev/null >/dev/null 2>&1; then
+    ok "handshake completes"
+  else
+    bad "handshake dies (proxy/firewall resets it) — this is SNI-level blocking, not DNS or a bad key"
+  fi
+  printf '  https  '
+  code="$(curl -s -m 10 -o /dev/null -w '%{http_code}' "https://$TARGET/api/v1/models?max_price=0" 2>/dev/null)"
+  if [ "$code" = "200" ]; then ok "GET /api/v1/models → 200"; else bad "GET /api/v1/models → ${code:-000}"; fi
+  say ""
+  if [ "$code" = "200" ]; then
+    say "  This host can reach OpenRouter. Run: $0 --free --key sk-or-v1-..."
+  else
+    say "  This host cannot reach OpenRouter, so no model call can succeed here."
+    say "  Configured and verified settings still apply: $0 --check"
+    say "  Offline proof of the wiring: $0 --demo"
+    say "  To run for real, use that command on a machine with normal internet access."
+  fi
   exit 0
 fi
 
