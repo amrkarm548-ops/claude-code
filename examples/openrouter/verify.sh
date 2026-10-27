@@ -31,6 +31,10 @@ done
 
 [ -n "$KEY" ] || { [ -f "$KEY_FILE" ] && KEY="$(tr -d '\r\n' < "$KEY_FILE")"; }
 [ -n "$KEY" ] || { echo "FAIL  no key (run setup.sh first or pass --key)" >&2; exit 2; }
+# Claude Code appends [1m] to declare a 1M window and prefixes gateway aliases
+# with ~; neither belongs in the request sent to OpenRouter.
+bare_model() { printf '%s' "${1%\[1m\]}" | sed 's/^~//'; }
+
 settings_model() {
   [ -f "$SETTINGS" ] || return 1
   node -e '
@@ -110,7 +114,8 @@ printf '%s' "$keyinfo" | node -e '
   });' 2>/dev/null || true
 
 head2 "3. Anthropic /v1/messages + tool use"
-for model in "${MODELS[@]}"; do
+for raw_model in "${MODELS[@]}"; do
+  model="$(bare_model "$raw_model")"
   printf '  model %s\n' "$model"
 
   plain="$(api POST /api/v1/messages "$(node -e '
@@ -203,7 +208,8 @@ if [ -f "$settings" ]; then
     const freeModels = ["ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
       "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
       "CLAUDE_CODE_SUBAGENT_MODEL"].map(k => e[k]).filter(Boolean);
-    const paid = freeModels.filter(m => !/:free$|^openrouter\/free$/.test(m));
+    const bare = (m) => m.replace(/\[1m\]$/i, "").replace(/^~/, "");
+    const paid = freeModels.map(bare).filter(m => !/:free$|^openrouter\/free$/.test(m));
     const discovery = e.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY;
     if (paid.length === 0) {
       console.log("  ok    every configured model is a :free model (no spend)");

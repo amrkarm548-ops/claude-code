@@ -53,7 +53,8 @@ const models = {
   fable: env.ANTHROPIC_DEFAULT_FABLE_MODEL,
   subagent: env.CLAUDE_CODE_SUBAGENT_MODEL,
 };
-const all = Object.values(models).filter(Boolean);
+const bare = (id) => String(id || '').replace(/\[1m\]$/i, '').replace(/^~/, '');
+const all = Object.values(models).filter(Boolean).map(bare);
 const freeOnly = all.length > 0 && all.every((m) => /:free$|^openrouter\/free$/.test(m));
 
 const checks = [

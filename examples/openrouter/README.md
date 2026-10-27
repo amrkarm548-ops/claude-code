@@ -78,6 +78,58 @@ OPENROUTER_FREE_FAST_MODEL=nvidia/nemotron-3.5-lightning:free \
 Free models are also weaker at long agentic loops than Claude; keep tasks small
 and expect the agent to need more nudges.
 
+## Run it
+
+```bash
+claude                      # interactive
+claude -p "explain src/x.ts" # headless
+> /status                   # Auth token: ANTHROPIC_AUTH_TOKEN, base URL https://openrouter.ai/api
+> /model                    # the classes you pinned
+```
+
+`claude --version` should report 2.1.x or newer; `claude update` upgrades.
+
+### Gateway model ids and the context window
+
+Claude Code only knows Anthropic's own ids, so on a gateway it prints a harmless
+notice per unknown id:
+
+```
+Claude Code doesn't recognize the model "thinkingmachines/inkling-small:free",
+so it assumes a context window of 200k tokens.
+[claude-code:unrecognized_model] ...
+```
+
+Two things follow from that:
+
+- **`[1m]` suffix** — for a model with a 1M window, write the id as
+  `thinkingmachines/inkling-small:free[1m]`. Claude Code strips the suffix
+  before the request (the API only ever sees `thinkingmachines/inkling-small:free`)
+  and assumes 1M instead of 200K. `--free` presets already do this; `verify.sh`
+  and the dashboard strip it too.
+- **Any other window** — set `CLAUDE_CODE_MAX_CONTEXT_TOKENS` to the real size,
+  e.g. `262144` for `google/gemma-4-31b-it:free`. Without `[1m]` (or a `claude-`
+  id) the variable applies on its own.
+
+The notice itself is expected on a gateway and can be ignored; it does not
+affect requests.
+
+### Prove the wiring without a network
+
+If the machine you are on cannot reach `openrouter.ai`, run Claude Code against
+the bundled stand-in. It answers with a fixed string — it is not a model — but
+it shows settings, model resolution, tool declaration, streaming and output all
+work:
+
+```bash
+node examples/openrouter/dashboard/dev-mock-server.mjs &     # :8787
+CLAUDE_CONFIG_DIR=/tmp/demo claude -p "hi"                   # point a throwaway config at it
+curl -s localhost:8787/__log                                  # what it received
+```
+
+The log line proves the important part: the request arrives as
+`{"model":"thinkingmachines/inkling-small:free","stream":true,"tools":12,"auth":"present"}`.
+
 ## Dashboard (live status + playground)
 
 A zero-dependency web UI that reads the real config and can test the key:
@@ -191,3 +243,5 @@ requests live at <https://openrouter.ai/activity>.
 | `settings.openrouter.json` | reference `env` block (paid / Claude models) |
 | `settings.openrouter-free.json` | reference `env` block for free-only mode |
 | `dashboard/` | web UI: status, free catalog, key test, chat (`server.mjs`, no deps) |
+| `dashboard/report.mjs` | bakes a standalone HTML report (no server, no network) |
+| `dashboard/dev-mock-server.mjs` | local Anthropic-shaped stand-in, for offline wiring checks |

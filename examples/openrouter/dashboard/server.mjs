@@ -75,6 +75,10 @@ function mask(key) {
   return `${key.slice(0, 12)}…${key.slice(-4)}`;
 }
 
+// Claude Code's own notation: a trailing [1m] declares a 1M context window and a
+// leading ~ marks a gateway alias. Neither is part of the id OpenRouter takes.
+const bareModel = (id) => String(id || '').replace(/\[1m\]$/i, '').replace(/^~/, '');
+
 // ---------- outbound calls -------------------------------------------------
 async function callOpenRouter(pathname, { method = 'GET', body, key, timeout = 25000 } = {}) {
   const started = Date.now();
@@ -170,7 +174,7 @@ async function apiStatus() {
     fable: env.ANTHROPIC_DEFAULT_FABLE_MODEL || null,
     subagent: env.CLAUDE_CODE_SUBAGENT_MODEL || null,
   };
-  const all = Object.values(models).filter(Boolean);
+  const all = Object.values(models).filter(Boolean).map(bareModel);
   const freeOnly = all.length > 0 && all.every((m) => /:free$|^openrouter\/free$/.test(m));
 
   const checks = [
@@ -202,7 +206,7 @@ async function apiStatus() {
 async function apiTest({ model } = {}) {
   const { key } = readKey();
   if (!key) return { ok: false, stage: 'config', error: 'no OpenRouter key found (run setup.sh)' };
-  const target = model || readSettings().env.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'nvidia/nemotron-3.5-lightning:free';
+  const target = bareModel(model || readSettings().env.ANTHROPIC_DEFAULT_HAIKU_MODEL || 'nvidia/nemotron-3.5-lightning:free');
 
   const res = await callOpenRouter('/v1/messages', {
     method: 'POST',
@@ -260,7 +264,7 @@ async function apiChat({ model, message }) {
   const { key } = readKey();
   if (!key) return { ok: false, error: 'no OpenRouter key found (run setup.sh)' };
   if (!message || !message.trim()) return { ok: false, error: 'empty message' };
-  const target = model || readSettings().env.ANTHROPIC_DEFAULT_SONNET_MODEL || 'thinkingmachines/inkling-small:free';
+  const target = bareModel(model || readSettings().env.ANTHROPIC_DEFAULT_SONNET_MODEL || 'thinkingmachines/inkling-small:free');
   const res = await callOpenRouter('/v1/messages', {
     method: 'POST',
     key,

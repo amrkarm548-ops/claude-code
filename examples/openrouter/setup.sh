@@ -45,8 +45,14 @@ SUBAGENT_MODEL="${OPENROUTER_SUBAGENT_MODEL:-~anthropic/claude-opus-latest[1m]}"
 # Free-tier presets: $0 per token, but shared account limits apply (20 req/min,
 # 50 req/day below $10 of lifetime credit). Both support tool calling, which
 # Claude Code requires. Ids rotate — re-check with `--list-free`.
-FREE_MAIN_MODEL="${OPENROUTER_FREE_MODEL:-thinkingmachines/inkling-small:free}"
-FREE_FAST_MODEL="${OPENROUTER_FREE_FAST_MODEL:-nvidia/nemotron-3.5-lightning:free}"
+#
+# The [1m] suffix is Claude Code's own notation for "this model has a 1M context
+# window": it strips it before calling the API, and stops Claude Code from
+# assuming 200K. Claude Code also prints a harmless "[claude-code:unrecognized_model]"
+# notice for any gateway id it does not know. For a model with a smaller window
+# than 1M, drop [1m] and set CLAUDE_CODE_MAX_CONTEXT_TOKENS instead.
+FREE_MAIN_MODEL="${OPENROUTER_FREE_MODEL:-thinkingmachines/inkling-small:free[1m]}"
+FREE_FAST_MODEL="${OPENROUTER_FREE_FAST_MODEL:-nvidia/nemotron-3.5-lightning:free[1m]}"
 
 BLOCK_BEGIN="# >>> claude-code openrouter >>>"
 BLOCK_END="# <<< claude-code openrouter <<<"
@@ -199,7 +205,10 @@ fi
 for m in "$FABLE_MODEL" "$OPUS_MODEL" "$SONNET_MODEL" "$HAIKU_MODEL" "$SUBAGENT_MODEL"; do
   [ -n "$m" ] || die "empty model id"
   if [ "$FREE" = "1" ]; then
-    case "$m" in
+    # Ignore Claude Code's [1m] suffix and OpenRouter's ~ alias marker.
+    bare="${m%\[1m\]}"
+    bare="${bare#\~}"
+    case "$bare" in
       *:free|openrouter/free) ;;
       *) die "model '$m' is not a :free model — free mode must not spend credits" ;;
     esac
