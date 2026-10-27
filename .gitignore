@@ -6,3 +6,6 @@
 .claude/settings.json
 .openrouter.env
 openrouter.env
+
+# Generated status report (machine-specific, contains masked key + local paths)
+examples/openrouter/dashboard/report.html
