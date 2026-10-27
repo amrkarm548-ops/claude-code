@@ -25,11 +25,58 @@ claude
 > /model       # every model class is listed
 ```
 
-Verify the credential itself (key, credit, tool use, streaming):
+Verify the credential itself (key, credit, tool use, streaming, expiry):
 
 ```bash
 ./examples/openrouter/verify.sh
 ```
+
+## Free-only mode (no credit on the account)
+
+A key with no balance can only use models whose id ends in `:free`. Free mode
+pins every model class to a free model, refuses to write a paid model at all,
+and turns off the features that would silently cost money or burn the daily
+allowance:
+
+```bash
+./examples/openrouter/setup.sh --free --expires 4h --key sk-or-v1-...
+./examples/openrouter/setup.sh --list-free      # what is free right now
+```
+
+| | paid setup | `--free` setup |
+|---|---|---|
+| model classes | `anthropic/claude-*` | `:free` ids only (script rejects anything else) |
+| `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY` | `1` (picker) | `0` — the picker can't hand you a paid model |
+| `CLAUDE_CODE_SKIP_FAST_MODE_ORG_CHECK` | `1` | removed (no fast mode without credit) |
+| `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | — | `1` — no background calls eating free requests |
+
+**The limits are the real constraint.** Every `:free` model on the account
+shares one pool: **20 requests/minute**, and **50 requests/day** until the
+account has bought $10 of credit in its lifetime (then 1,000/day). One Claude
+Code turn is several requests (tool loop + summaries), so plan for a handful of
+turns per day, not an all-day session. `verify.sh` prints the daily budget and
+the expiry countdown.
+
+**Expiring keys.** `--expires 4h` (or `90m`, `2d`, an ISO timestamp) is recorded
+in `${XDG_CONFIG_HOME:-~/.config}/openrouter/key_meta.json`; `verify.sh` then
+shows a countdown and fails once the key is dead, so you notice before Claude
+Code starts returning 401s. Renew with the same command and a fresh key — it
+overwrites the old one everywhere.
+
+**Free model ids rotate.** They are added and retired constantly
+(`poolside/laguna-*:free` even carries an `expiration_date`). `--list-free`
+prints the live list with context size and whether each one supports tool
+calling — Claude Code needs tool calling, so only `tools=yes` rows are usable.
+Override the choice without editing files:
+
+```bash
+OPENROUTER_FREE_MODEL=poolside/laguna-s-2.1:free \
+OPENROUTER_FREE_FAST_MODEL=nvidia/nemotron-3.5-lightning:free \
+  ./examples/openrouter/setup.sh --free --key sk-or-v1-...
+```
+
+Free models are also weaker at long agentic loops than Claude; keep tasks small
+and expect the agent to need more nudges.
 
 ## What gets configured
 
@@ -40,7 +87,7 @@ Verify the credential itself (key, credit, tool use, streaming):
 | `ANTHROPIC_API_KEY` | `""` (present **and empty**) | Unset is not enough: a stale value makes Claude Code fall back to Anthropic auth/billing. |
 | `OPENROUTER_API_KEY` | your key | Lets SDKs, scripts and subprocesses reach OpenRouter too. |
 | `ANTHROPIC_DEFAULT_FABLE_MODEL` | `~anthropic/claude-fable-latest[1m]` | Long-horizon reasoning class; hidden from `/model` on a gateway unless pinned. |
-| `ANTHROPIC_DEFAULT_OPUS_MODEL` | `anthropic/claude-opus-5` | Pinned to a concrete ID so `/fast` actually sends `speed: "fast"`. |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | `anthropic/claude-opus-5` | Pinned to a concrete ID so `/fast` actually sends `speed: "fast"`. `--free` swaps this for a `:free` model. |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `~anthropic/claude-sonnet-latest[1m]` | General coding. |
 | `ANTHROPIC_DEFAULT_HAIKU_MODEL` | `~anthropic/claude-haiku-latest` | Quick completions, titles, summaries. |
 | `CLAUDE_CODE_SUBAGENT_MODEL` | `~anthropic/claude-opus-latest[1m]` | Task/subagent fan-out. |
@@ -99,6 +146,10 @@ to Anthropic again.
 | `/status` shows a Claude account | a cached login wins over the gateway credential | `/logout`, then relaunch |
 | `404 /v1/v1/messages` | `ANTHROPIC_BASE_URL` ends in `/v1` or `/` | use exactly `https://openrouter.ai/api` |
 | Model not found (`openrouter/auto`, picker entry) | stale settings / discovery off | `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` and restart Claude Code |
+| `404` on a `:free` model that worked yesterday | the free id was retired | `setup.sh --list-free`, then re-run with `--free` |
+| `429` mid-session | 20 RPM or the 50/1,000 RPD free cap | wait for `Retry-After`; free mode is meant for short sessions |
+| `402 insufficient credits` | account balance negative (blocks free models too) | free mode only works on a zero/positive balance |
+| `/fast` missing | free mode removes the org-check bypass | expected: fast mode needs credit |
 | `/fast` says ON but bills standard | Opus alias instead of a concrete model | pin `ANTHROPIC_DEFAULT_OPUS_MODEL=anthropic/claude-opus-5` |
 | Non-Anthropic model garbles tool calls | provider doesn't implement Anthropic semantics | stick to `anthropic/*`, or test with `verify.sh --model …` |
 
@@ -109,6 +160,7 @@ requests live at <https://openrouter.ai/activity>.
 
 | File | Purpose |
 |---|---|
-| `setup.sh` | install, reconfigure, or uninstall the OpenRouter backend |
+| `setup.sh` | install, reconfigure (`--free`, `--expires`), `--list-free`, or `--uninstall` |
 | `verify.sh` | end-to-end check: catalog, credit, key, text, tool use, streaming, settings |
-| `settings.openrouter.json` | reference `env` block to copy into a settings file by hand |
+| `settings.openrouter.json` | reference `env` block (paid / Claude models) |
+| `settings.openrouter-free.json` | reference `env` block for free-only mode |

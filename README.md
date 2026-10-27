@@ -56,12 +56,16 @@ OpenRouter key instead — with model discovery, `/fast`, subagents and tool use
 intact — use the setup helper:
 
 ```bash
-./examples/openrouter/setup.sh --key sk-or-v1-...
+./examples/openrouter/setup.sh --key sk-or-v1-...            # paid models
+./examples/openrouter/setup.sh --free --expires 4h --key ... # free models only
 ./examples/openrouter/verify.sh
 ```
 
+`--free` pins every model class to a `:free` model (no spend) and disables model
+discovery and background traffic so the free daily allowance is not wasted.
+
 See [examples/openrouter](./examples/openrouter/README.md) for the variables it
-sets, where the key is stored, and how to uninstall it.
+sets, the free-tier limits, where the key is stored, and how to uninstall it.
 
 ## Reporting Bugs
 

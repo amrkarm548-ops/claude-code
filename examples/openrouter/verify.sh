@@ -11,6 +11,8 @@
 set -uo pipefail
 
 KEY_FILE="${OPENROUTER_KEY_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/openrouter/api_key}"
+META_FILE="${OPENROUTER_META_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/openrouter/key_meta.json}"
+SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
 BASE="https://openrouter.ai"
 MODELS=()
 KEY="${OPENROUTER_API_KEY:-}"
@@ -29,7 +31,19 @@ done
 
 [ -n "$KEY" ] || { [ -f "$KEY_FILE" ] && KEY="$(tr -d '\r\n' < "$KEY_FILE")"; }
 [ -n "$KEY" ] || { echo "FAIL  no key (run setup.sh first or pass --key)" >&2; exit 2; }
-[ "${#MODELS[@]}" -gt 0 ] || MODELS=("${OPENROUTER_TEST_MODEL:-anthropic/claude-haiku-latest}")
+settings_model() {
+  [ -f "$SETTINGS" ] || return 1
+  node -e '
+    const fs = require("fs");
+    const env = (JSON.parse(fs.readFileSync(process.argv[1], "utf8")).env) || {};
+    process.stdout.write(env[process.argv[2]] || "");
+  ' "$SETTINGS" "$1"
+}
+
+if [ "${#MODELS[@]}" -eq 0 ]; then
+  MODELS=("${OPENROUTER_TEST_MODEL:-$(settings_model ANTHROPIC_DEFAULT_HAIKU_MODEL)}")
+  [ -n "${MODELS[0]}" ] || MODELS=("nvidia/nemotron-3.5-lightning:free")
+fi
 
 command -v curl >/dev/null || { echo "FAIL  curl is required" >&2; exit 2; }
 
@@ -95,8 +109,9 @@ printf '%s' "$keyinfo" | node -e '
     console.log("  ok    key: " + bits.join(", "));
   });' 2>/dev/null || true
 
+head2 "3. Anthropic /v1/messages + tool use"
 for model in "${MODELS[@]}"; do
-  head2 "3. Anthropic /v1/messages + tool use  [$model]"
+  printf '  model %s\n' "$model"
 
   plain="$(api POST /api/v1/messages "$(node -e '
     const m = process.argv[1];
@@ -150,8 +165,24 @@ done
 
 fi  # end live checks
 
-head2 "4. Claude Code settings"
-settings="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+head2 "4. Key expiry"
+if [ -f "$META_FILE" ]; then
+  node -e '
+    const fs = require("fs");
+    const meta = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    if (!meta.expires_at) process.exit(2);
+    const left = meta.expires_at - Math.floor(Date.now() / 1000);
+    const h = Math.floor(Math.abs(left) / 3600), m = Math.floor((Math.abs(left) % 3600) / 60);
+    const when = new Date(meta.expires_at * 1000).toISOString().replace("T", " ").slice(0, 16) + " UTC";
+    if (left <= 0) { console.log(`  FAIL  expired ${h}h ${m}m ago (${when}) — get a new key`); process.exit(1); }
+    console.log(`  ok    ${h}h ${m}m left (${when}), mode ${meta.mode || "unknown"}`);
+  ' "$META_FILE" || FAILED=1
+else
+  echo "  ok    no expiry recorded (use setup.sh --expires 4h to track one)"
+fi
+
+head2 "5. Claude Code settings"
+settings="$SETTINGS"
 if [ -f "$settings" ]; then
   node -e '
     const fs = require("fs"); const e = (JSON.parse(fs.readFileSync(process.argv[1], "utf8")).env) || {};
@@ -168,6 +199,21 @@ if [ -f "$settings" ]; then
       const good = test(e[k]);
       ok = ok && good;
       console.log(`  ${good ? "ok  " : "FAIL"}  ${k}=${JSON.stringify(e[k])}`);
+    }
+    const freeModels = ["ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+      "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+      "CLAUDE_CODE_SUBAGENT_MODEL"].map(k => e[k]).filter(Boolean);
+    const paid = freeModels.filter(m => !/:free$|^openrouter\/free$/.test(m));
+    const discovery = e.CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY;
+    if (paid.length === 0) {
+      console.log("  ok    every configured model is a :free model (no spend)");
+      const good = discovery === "0";
+      ok = ok && good;
+      console.log(`  ${good ? "ok  " : "FAIL"}  model discovery ${JSON.stringify(discovery)} `
+        + "(free mode must be \"0\" so the picker cannot select a paid model)");
+    } else {
+      console.log("  note  paid models configured: " + paid.join(", "));
+      console.log("        free-only setup: re-run setup.sh --free");
     }
     process.exit(ok ? 0 : 1);
   ' "$settings" || FAILED=1
