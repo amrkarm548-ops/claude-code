@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Claude Code</title>
+<link rel="stylesheet" href="/vendor/xterm.css" />
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⌨️</text></svg>" />
+</head>
+<body>
+<header>
+  <div class="left">
+    <span class="logo">✳</span>
+    <strong>Claude Code</strong>
+    <span class="tag" id="backend-tag">—</span>
+    <span class="dot" id="dot"></span>
+    <span class="hint" id="status">جارٍ التشغيل…</span>
+  </div>
+  <div class="right">
+    <button class="btn" data-backend="openrouter" title="إعداد OpenRouter الحقيقي">OpenRouter</button>
+    <button class="btn" data-backend="demo" title="سيرفر محلي بردود ثابتة">Local demo</button>
+    <button class="btn ghost" id="restart" title="إعادة تشغيل الجلسة">↻</button>
+  </div>
+</header>
+
+<div class="banner" id="banner" hidden></div>
+
+<main id="screen"></main>
+
+<footer>
+  <span>الطرفية دي بتشغّل <code>claude</code> الحقيقي في PTY — اكتب جواها عادي (Enter للإرسال، Esc للإلغاء، Ctrl+C للخروج).</span>
+  <span class="sep">·</span>
+  <span id="size"></span>
+</footer>
+
+<script src="/vendor/xterm.js"></script>
+<script src="/vendor/addon-fit.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>

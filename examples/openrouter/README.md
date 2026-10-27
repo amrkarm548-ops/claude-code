@@ -149,6 +149,37 @@ curl -s localhost:8787/__log                                  # what it received
 The log line proves the important part: the request arrives as
 `{"model":"thinkingmachines/inkling-small:free","stream":true,"tools":12,"auth":"present"}`.
 
+## Run the actual app in a browser
+
+This is Claude Code itself, not a wrapper around it: a real PTY runs the
+`claude` CLI, and xterm.js in the browser is just the screen and keyboard.
+
+```bash
+python3 examples/openrouter/terminal/server.py       # http://localhost:7681
+# or, together with everything else:
+./examples/openrouter/env.sh --terminal --free --key sk-or-v1-...
+```
+
+What you get is the app's own TUI — the welcome header with the model you
+pinned, the prompt box, permission mode, `/status`, `/model`, tool approvals,
+"esc to interrupt", retry banners. Typing goes straight into the process.
+
+- **OpenRouter** button — restart the session on your configured setup
+  (`settings.json` → `https://openrouter.ai/api`).
+- **Local demo** button — restart the same CLI against the bundled stand-in, so
+  the UI can be exercised on a host with no egress to `openrouter.ai`. Replies
+  are canned; the header tag says `local demo`.
+- The server probes `openrouter.ai:443` at startup and opens the matching
+  backend, then says why in the banner.
+
+Stdlib only: `pty.fork()` for the terminal, SSE for output, POST for keystrokes.
+The single vendored asset is xterm.js 6.0.0 (MIT, `terminal/vendor/`).
+
+Notes: one PTY session per server (restarting replaces it), and the CLI's
+first-run onboarding (theme, security notes, folder trust) appears once per
+config directory — answer it in the terminal. `--terminal` in `env.sh` starts
+the same server detached and `env.sh --stop` stops it.
+
 ## Dashboard (live status + playground)
 
 A zero-dependency web UI that reads the real config and can test the key:
@@ -263,6 +294,7 @@ requests live at <https://openrouter.ai/activity>.
 | `verify.sh` | end-to-end check: catalog, credit, key, text, tool use, streaming, settings |
 | `settings.openrouter.json` | reference `env` block (paid / Claude models) |
 | `settings.openrouter-free.json` | reference `env` block for free-only mode |
-| `dashboard/` | web UI: status, free catalog, key test, chat (`server.mjs`, no deps) |
+| `terminal/` | the real Claude Code app in a browser: PTY + xterm.js (`server.py`, stdlib only) |
+| `dashboard/` | status page: config checks, free catalog, key test, chat (`server.mjs`) |
 | `dashboard/report.mjs` | bakes a standalone HTML report (no server, no network) |
 | `dashboard/dev-mock-server.mjs` | local Anthropic-shaped stand-in, for offline wiring checks |

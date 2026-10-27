@@ -6,7 +6,8 @@
 #   ./env.sh --install --free --key ...       # also install the Claude Code CLI
 #   ./env.sh --check                          # re-verify an existing setup
 #   ./env.sh --demo                           # prove the wiring offline (stand-in server)
-#   ./env.sh --stop                           # stop the dashboard it started
+#   ./env.sh --stop                           # stop what it started
+#   ./env.sh --terminal                       # also run Claude Code in the browser (real CLI in a PTY)
 #
 # Steps: prerequisites → CLI → credential/config → verification → dashboard.
 # Safe to re-run: every step is idempotent.
@@ -27,6 +28,8 @@ CHECK=0
 DEMO=0
 STOP=0
 DASHBOARD_ON=1
+TERMINAL=0
+TERMINAL_PORT="${TERMINAL_PORT:-7681}"
 SETUP_ARGS=()
 
 say() { printf '%s\n' "$*"; }
@@ -35,7 +38,7 @@ ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 warn() { printf '  \033[33m!\033[0m %s\n' "$*"; }
 bad() { printf '  \033[31m✗\033[0m %s\n' "$*"; }
 
-usage() { sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; }
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -48,6 +51,7 @@ while [ $# -gt 0 ]; do
     --check) CHECK=1; shift ;;
     --demo) DEMO=1; shift ;;
     --stop) STOP=1; shift ;;
+    --terminal) TERMINAL=1; shift ;;
     --no-dashboard) DASHBOARD_ON=0; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1 (try --help)" >&2; exit 2 ;;
@@ -56,12 +60,15 @@ done
 
 # --- stop ------------------------------------------------------------------
 if [ "$STOP" = "1" ]; then
-  if [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
-    kill "$(cat "$PID_FILE")" && rm -f "$PID_FILE"
-    say "dashboard stopped"
-  else
-    say "dashboard is not running (no PID file)"
-  fi
+  for pair in "dashboard:$PID_FILE" "terminal:${TMPDIR:-/tmp}/openrouter-terminal.pid"; do
+    name="${pair%%:*}"; file="${pair#*:}"
+    if [ -f "$file" ] && kill -0 "$(cat "$file" 2>/dev/null || echo 0)" 2>/dev/null; then
+      kill "$(cat "$file")" && rm -f "$file"
+      say "$name stopped"
+    else
+      say "$name is not running"
+    fi
+  done
   exit 0
 fi
 
@@ -197,6 +204,26 @@ else
   fi
 fi
 
+if [ "$TERMINAL" = "1" ]; then
+  step "Claude Code in the browser"
+  if curl -s -m 1 "http://127.0.0.1:$TERMINAL_PORT/api/health" >/dev/null 2>&1; then
+    ok "already running on http://localhost:$TERMINAL_PORT"
+  else
+    PORT="$TERMINAL_PORT" setsid nohup python3 "$HERE/terminal/server.py" >"${TMPDIR:-/tmp}/openrouter-terminal.log" 2>&1 &
+    echo "$!" > "${TMPDIR:-/tmp}/openrouter-terminal.pid"
+    for _ in $(seq 1 40); do
+      curl -s -m 1 "http://127.0.0.1:$TERMINAL_PORT/api/health" >/dev/null 2>&1 && break
+      sleep 0.25
+    done
+    if curl -s -m 2 "http://127.0.0.1:$TERMINAL_PORT/api/health" >/dev/null 2>&1; then
+      ok "claude is running in a PTY on http://localhost:$TERMINAL_PORT"
+      say "     open it in a browser: you get the real Claude Code TUI"
+    else
+      bad "terminal did not start — see ${TMPDIR:-/tmp}/openrouter-terminal.log"
+    fi
+  fi
+fi
+
 # --- summary ---------------------------------------------------------------
 step "next"
 say "  1) open a new shell (or: exec bash -l) so the env file is sourced"
@@ -209,6 +236,7 @@ if command -v claude >/dev/null 2>&1; then
   say "  headless smoke test on your machine:  claude -p \"reply with pong\""
 fi
 say "  dashboard:  http://localhost:$PORT        (stop with: $0 --stop)"
+[ "$TERMINAL" = "1" ] && say "  terminal:   http://localhost:$TERMINAL_PORT        (the real Claude Code TUI)"
 say "  re-check:   $0 --check"
 say "  offline demo: $0 --demo"
 [ "${NET_BLOCKED:-0}" = "1" ] && say ""
