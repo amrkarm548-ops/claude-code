@@ -45,13 +45,21 @@ CONF_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.e
 KEY_FILE = os.environ.get("OPENROUTER_KEY_FILE", os.path.join(CONF_DIR, "api_key"))
 
 
-def probe_egress(host="openrouter.ai", port=443, timeout=4.0):
-    """Can this host reach OpenRouter at all? Decides the default backend."""
-    import socket
+def probe_egress(timeout=6.0):
+    """Can this host actually talk to OpenRouter? Decides the default backend.
+
+    A TCP connect is not enough: proxies happily accept the socket and then
+    reset it during TLS. Ask for a real response instead.
+    """
+    import urllib.request
     try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
+        req = urllib.request.Request(
+            "https://openrouter.ai/api/v1/models?max_price=0",
+            headers={"User-Agent": "claude-code-terminal/1.0"},
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return res.status == 200
+    except Exception:
         return False
 
 
