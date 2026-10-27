@@ -65,6 +65,7 @@ function renderStatus(data) {
     .join('');
 
   const rows = [
+    ['default', data.models.default],
     ['opus', data.models.opus],
     ['sonnet', data.models.sonnet],
     ['haiku', data.models.haiku],

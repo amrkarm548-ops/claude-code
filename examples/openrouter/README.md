@@ -13,22 +13,41 @@ Claude Code ──/v1/messages──▶ https://openrouter.ai/api ──▶ anth
  (ANTHROPIC_BASE_URL)           (OpenRouter routing)         openai/*, google/*, …
 ```
 
-## Quick start
+## Quick start — one command
 
 ```bash
-# one command: stores the key, writes settings, wires the shell profile
-./examples/openrouter/setup.sh --key sk-or-v1-...
+./examples/openrouter/env.sh --install --free --expires 4h --key sk-or-v1-...
+```
 
-# then open a NEW shell
+`env.sh` runs the whole environment in five checked steps and is safe to re-run:
+
+1. **prerequisites** — Node ≥ 18, npm
+2. **CLI** — finds `claude`, or installs `@anthropic-ai/claude-code` with `--install`
+3. **config** — writes the key + provider env (`--free` for free-only models)
+4. **verify** — settings, key expiry, and — when the network allows — a live
+   `/v1/messages` call with tool use and streaming
+5. **dashboard** — starts the web UI on port 4173 and prints the URL
+
+```bash
+./env.sh --check      # re-verify an existing setup
+./env.sh --stop       # stop the dashboard it started
+./env.sh --demo       # prove the wiring with no network at all
+```
+
+Then, in a new shell:
+
+```bash
 claude
 > /status      # Auth token: ANTHROPIC_AUTH_TOKEN, base URL https://openrouter.ai/api
 > /model       # every model class is listed
 ```
 
-Verify the credential itself (key, credit, tool use, streaming, expiry):
+Lower-level pieces, if you prefer them separately:
 
 ```bash
-./examples/openrouter/verify.sh
+./examples/openrouter/setup.sh --free --key sk-or-v1-...   # config only
+./examples/openrouter/verify.sh                            # checks only
+node examples/openrouter/dashboard/server.mjs              # dashboard only
 ```
 
 ## Free-only mode (no credit on the account)
@@ -164,6 +183,7 @@ page says so up front instead of looking like a bad config.
 | `ANTHROPIC_AUTH_TOKEN` | your `sk-or-v1-…` key | Sent as `Authorization: Bearer`, which is what OpenRouter reads. |
 | `ANTHROPIC_API_KEY` | `""` (present **and empty**) | Unset is not enough: a stale value makes Claude Code fall back to Anthropic auth/billing. |
 | `OPENROUTER_API_KEY` | your key | Lets SDKs, scripts and subprocesses reach OpenRouter too. |
+| `ANTHROPIC_MODEL` | the main model | Session default. Without it a gateway session asks for Claude Code's built-in default id, which OpenRouter may not serve. |
 | `ANTHROPIC_DEFAULT_FABLE_MODEL` | `~anthropic/claude-fable-latest[1m]` | Long-horizon reasoning class; hidden from `/model` on a gateway unless pinned. |
 | `ANTHROPIC_DEFAULT_OPUS_MODEL` | `anthropic/claude-opus-5` | Pinned to a concrete ID so `/fast` actually sends `speed: "fast"`. `--free` swaps this for a `:free` model. |
 | `ANTHROPIC_DEFAULT_SONNET_MODEL` | `~anthropic/claude-sonnet-latest[1m]` | General coding. |
@@ -238,6 +258,7 @@ requests live at <https://openrouter.ai/activity>.
 
 | File | Purpose |
 |---|---|
+| `env.sh` | one command: prerequisites → CLI → config → verify → dashboard (`--demo`, `--check`, `--stop`) |
 | `setup.sh` | install, reconfigure (`--free`, `--expires`), `--list-free`, or `--uninstall` |
 | `verify.sh` | end-to-end check: catalog, credit, key, text, tool use, streaming, settings |
 | `settings.openrouter.json` | reference `env` block (paid / Claude models) |

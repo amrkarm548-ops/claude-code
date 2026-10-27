@@ -168,6 +168,7 @@ async function apiStatus() {
   const meta = readJson(META_FILE) || {};
   const env = settings.env;
   const models = {
+    default: env.ANTHROPIC_MODEL || null,
     opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL || null,
     sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL || null,
     haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL || null,

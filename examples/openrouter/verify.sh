@@ -195,6 +195,7 @@ if [ -f "$settings" ]; then
       ["ANTHROPIC_BASE_URL", v => v === "https://openrouter.ai/api"],
       ["ANTHROPIC_AUTH_TOKEN", v => typeof v === "string" && /^sk-or-/.test(v)],
       ["ANTHROPIC_API_KEY", v => v === ""],
+      ["ANTHROPIC_MODEL", v => !!v && /:free$|^openrouter\/free$|\//.test(v)],
       ["ANTHROPIC_DEFAULT_OPUS_MODEL", v => !!v],
       ["ANTHROPIC_DEFAULT_SONNET_MODEL", v => !!v],
       ["ANTHROPIC_DEFAULT_HAIKU_MODEL", v => !!v],
@@ -205,7 +206,7 @@ if [ -f "$settings" ]; then
       ok = ok && good;
       console.log(`  ${good ? "ok  " : "FAIL"}  ${k}=${JSON.stringify(e[k])}`);
     }
-    const freeModels = ["ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    const freeModels = ["ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL",
       "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
       "CLAUDE_CODE_SUBAGENT_MODEL"].map(k => e[k]).filter(Boolean);
     const bare = (m) => m.replace(/\[1m\]$/i, "").replace(/^~/, "");

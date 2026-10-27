@@ -47,6 +47,7 @@ const meta = readJson(META_FILE) || {};
 const free = readJson(path.join(HERE, 'free-models.snapshot.json')) || [];
 
 const models = {
+  'default': env.ANTHROPIC_MODEL,
   opus: env.ANTHROPIC_DEFAULT_OPUS_MODEL,
   sonnet: env.ANTHROPIC_DEFAULT_SONNET_MODEL,
   haiku: env.ANTHROPIC_DEFAULT_HAIKU_MODEL,
