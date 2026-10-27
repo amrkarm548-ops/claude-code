@@ -1,2 +1,8 @@
 .DS_Store
 
+
+# Local credentials and per-machine Claude Code settings
+.claude/settings.local.json
+.claude/settings.json
+.openrouter.env
+openrouter.env

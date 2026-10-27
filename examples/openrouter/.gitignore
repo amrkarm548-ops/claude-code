@@ -1,0 +1,6 @@
+# Never commit a real key
+.env
+.env.*
+*.key
+settings.local.json
+openrouter.env
