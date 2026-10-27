@@ -78,6 +78,32 @@ OPENROUTER_FREE_FAST_MODEL=nvidia/nemotron-3.5-lightning:free \
 Free models are also weaker at long agentic loops than Claude; keep tasks small
 and expect the agent to need more nudges.
 
+## Dashboard (live status + playground)
+
+A zero-dependency web UI that reads the real config and can test the key:
+
+```bash
+node examples/openrouter/dashboard/server.mjs      # http://localhost:4173
+PORT=8080 HOST=127.0.0.1 node examples/openrouter/dashboard/server.mjs
+```
+
+It shows:
+
+- every settings check (base URL, auth token, the deliberately empty
+  `ANTHROPIC_API_KEY`, free-only models, discovery state);
+- the masked key and its source, plus a **live countdown** to `--expires`;
+- the free catalog (live, falling back to a bundled snapshot when there is no
+  egress) with context size, tool-calling and vision flags;
+- a **real test button** that sends `/v1/messages` with a tool definition — the
+  same call shape Claude Code uses — and prints latency, usage and the model
+  that actually served it;
+- a small chat box for a quick sanity check;
+- credit balance and the free-tier request caps.
+
+The key is read server-side only and reported masked; it never reaches the
+browser. When the host running the dashboard cannot reach `openrouter.ai`, the
+page says so up front instead of looking like a bad config.
+
 ## What gets configured
 
 | Variable | Value | Why |
@@ -164,3 +190,4 @@ requests live at <https://openrouter.ai/activity>.
 | `verify.sh` | end-to-end check: catalog, credit, key, text, tool use, streaming, settings |
 | `settings.openrouter.json` | reference `env` block (paid / Claude models) |
 | `settings.openrouter-free.json` | reference `env` block for free-only mode |
+| `dashboard/` | web UI: status, free catalog, key test, chat (`server.mjs`, no deps) |

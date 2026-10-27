@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OpenRouter × Claude Code</title>
+<link rel="stylesheet" href="/styles.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>" />
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <span class="dot" id="live-dot"></span>
+    <h1>OpenRouter <span class="sep">×</span> Claude Code</h1>
+  </div>
+  <div class="top-meta">
+    <span id="connection" class="pill pill-muted">جارٍ الفحص…</span>
+    <button id="refresh" class="btn btn-ghost" title="إعادة القراءة">تحديث</button>
+  </div>
+</header>
+
+<p class="disclaimer" id="disclaimer" hidden></p>
+
+<main class="grid">
+  <section class="card span-2">
+    <h2>حالة الإعداد <small id="settings-path" class="mono muted"></small></h2>
+    <div class="stat-row">
+      <div class="stat"><span class="label">Base URL</span><span class="value mono" id="base-url">—</span></div>
+      <div class="stat"><span class="label">المفتاح</span><span class="value mono" id="key-mask">—</span></div>
+      <div class="stat"><span class="label">ينتهي بعد</span><span class="value mono" id="expiry">—</span></div>
+    </div>
+    <ul class="checks" id="checks"></ul>
+  </section>
+
+  <section class="card">
+    <h2>فئات الموديلات</h2>
+    <table class="models">
+      <tbody id="model-classes"></tbody>
+    </table>
+    <p class="hint">كل الفئات لازم تكون <code>:free</code> في الوضع المجاني.</p>
+  </section>
+
+  <section class="card">
+    <h2>الرصيد والحدود</h2>
+    <div id="credits" class="credits">—</div>
+    <ul class="limits">
+      <li><b>20</b> طلب/دقيقة</li>
+      <li><b>50</b> طلب/يوم (أقل من $10 رصيد مدفوع)</li>
+      <li><b>1000</b> طلب/يوم (بعد $10 مدفوعة مرة واحدة)</li>
+    </ul>
+  </section>
+
+  <section class="card span-2">
+    <h2>الموديلات المجانية الآن <small class="muted" id="catalog-source"></small></h2>
+    <div class="table-wrap">
+      <table class="catalog">
+        <thead>
+          <tr><th>الموديل</th><th>Context</th><th>Tools</th><th>Vision</th><th></th></tr>
+        </thead>
+        <tbody id="catalog"></tbody>
+      </table>
+    </div>
+    <p class="hint" id="catalog-error" hidden></p>
+    <div class="cmd-row">
+      <code id="cmd" class="mono"></code>
+      <button class="btn" data-copy="cmd">نسخ</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>اختبار حقيقي للمفتاح</h2>
+    <p class="hint">يرسل طلب <code>/v1/messages</code> مع تعريف tool — نفس اللي Claude Code بيعمله.</p>
+    <button class="btn btn-primary" id="run-test">اختبر الآن</button>
+    <pre id="test-out" class="out" hidden></pre>
+  </section>
+
+  <section class="card">
+    <h2>جرّب رسالة</h2>
+    <textarea id="chat-input" rows="3" placeholder="اكتب أي حاجة…"></textarea>
+    <button class="btn btn-primary" id="send-chat">إرسال</button>
+    <pre id="chat-out" class="out" hidden></pre>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>هذه اللوحة تقرأ إعدادات Claude Code على الجهاز اللي بتشغّل منه السيرفر، والمفتاح مبيتبعتش للمتصفح أبدًا.</p>
+  <pre class="mono">node examples/openrouter/dashboard/server.mjs
+./examples/openrouter/verify.sh</pre>
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>
